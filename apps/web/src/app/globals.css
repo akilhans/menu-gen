@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-display: 'Fraunces', 'Playfair Display', serif;
+  --brand: #ff5a1f;
+}
+
+html,
+body {
+  height: 100%;
+  background: #f7f5f0;
+  color: #0e0e10;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-sans);
+}
+
+/* Mobile-first utilities */
+.safe-bottom {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0) + 1rem);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.gradient-mask-bottom {
+  mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+}

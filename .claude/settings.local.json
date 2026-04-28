@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(curl -s -i \"http://localhost:3000/menu/nur-burger\")",
+      "Bash(curl -s \"http://localhost:4000/api/public/menu/nur-burger\")",
+      "Bash(netstat -ano)",
+      "Bash(findstr \":3000 \")",
+      "Bash(rm -rf .next)",
+      "Bash(npx next *)",
+      "Bash(curl -s -i \"http://localhost:3030/menu/nur-burger\")",
+      "Bash(xargs grep *)",
+      "Bash(npx tsc *)"
+    ]
+  }
+}

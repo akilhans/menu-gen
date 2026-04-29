@@ -34,6 +34,14 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Prevent any descendant overflow from scrolling the whole page on phones.
+   Inner scroll containers (e.g. .no-scrollbar with overflow-x-auto) still
+   scroll independently — this only blocks accidental document-level scroll. */
+html,
+body {
+  overflow-x: hidden;
+}
+
 body {
   font-family: var(--font-sans);
   font-feature-settings: 'ss01', 'cv11';

@@ -39,9 +39,11 @@ export function BarStrip({ data, color = 'var(--chart-1)', ariaLabel }: BarStrip
                 opacity: 0.18,
               }}
             />
-            <div className="relative flex h-full items-center justify-between px-2.5 text-xs">
-              <span className="truncate font-medium text-ink">{d.label}</span>
-              <span className="ml-2 shrink-0 font-mono tabular text-ink/60">
+            <div className="relative flex h-full items-center justify-between gap-2 px-2.5 text-xs">
+              <span className="min-w-0 flex-1 truncate font-medium text-ink">
+                {d.label}
+              </span>
+              <span className="shrink-0 font-mono tabular text-ink/60">
                 {d.value}
               </span>
             </div>

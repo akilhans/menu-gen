@@ -199,21 +199,23 @@ export default function OrdersPage() {
           <p className="text-sm text-ink/50">{t('orders.section')}</p>
           <h1 className="font-display text-3xl tracking-tight md:text-4xl">{t('orders.title')}</h1>
           {lastUpdated && (
-            <p className="mt-1 flex items-center gap-2 text-xs text-ink/40">
-              <span
-                className={cn(
-                  'inline-block h-1.5 w-1.5 rounded-full',
-                  autoRefresh ? 'bg-sage' : 'bg-ink/30'
-                )}
-              />
-              {t('orders.updated')}: {lastUpdated.toLocaleTimeString()}
+            <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink/40">
+              <span className="inline-flex items-center gap-2">
+                <span
+                  className={cn(
+                    'inline-block h-1.5 w-1.5 rounded-full',
+                    autoRefresh ? 'bg-sage' : 'bg-ink/30'
+                  )}
+                />
+                {t('orders.updated')}: {lastUpdated.toLocaleTimeString()}
+              </span>
               <span className="hidden md:inline">
                 · <Kbd>R</Kbd> refresh · <Kbd>E</Kbd> export · <Kbd>P</Kbd> pause · <Kbd>1–6</Kbd> filter
               </span>
             </p>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={exportOrders}
             className="inline-flex items-center gap-1.5 rounded-xl border border-black/10 bg-white px-3 py-2 text-sm hover:bg-paper-warm"
@@ -562,16 +564,16 @@ const OrderRow = memo(function OrderRow({
 
       <button
         onClick={() => setExpanded((v) => !v)}
-        className="mt-3 flex w-full items-center justify-between rounded-xl bg-paper-warm px-3 py-2 text-sm text-ink/70 transition-colors hover:bg-paper"
+        className="mt-3 flex w-full items-center justify-between gap-2 rounded-xl bg-paper-warm px-3 py-2 text-sm text-ink/70 transition-colors hover:bg-paper"
       >
-        <span className="truncate">
+        <span className="min-w-0 flex-1 truncate text-left">
           {order.items
             .slice(0, 3)
             .map((i) => `${i.quantity}× ${i.name}`)
             .join(' · ')}
           {order.items.length > 3 && ` · +${order.items.length - 3}`}
         </span>
-        <span className="ml-2 text-xs text-ink/40">{expanded ? '–' : '+'}</span>
+        <span className="shrink-0 text-xs text-ink/40">{expanded ? '–' : '+'}</span>
       </button>
 
       <AnimatePresence initial={false}>
@@ -585,7 +587,7 @@ const OrderRow = memo(function OrderRow({
             <ul className="mt-3 flex flex-col gap-1 text-sm">
               {order.items.map((it, i) => (
                 <li key={i} className="flex justify-between gap-3 py-1">
-                  <span className="min-w-0">
+                  <span className="min-w-0 flex-1">
                     <span className="font-mono text-xs text-ink/50">{it.quantity}×</span>{' '}
                     <span className="font-medium">{it.name}</span>
                     {it.selectedModifiers && it.selectedModifiers.length > 0 && (

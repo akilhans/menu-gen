@@ -7,7 +7,7 @@ import { CustomerMenu } from '@/components/menu/CustomerMenu';
 export const dynamic = 'force-dynamic';
 
 async function fetchMenu(slug: string): Promise<PublicMenuResponse | null> {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'https://test.opketme.uz';
   try {
     const res = await fetch(`${apiUrl}/api/public/menu/${encodeURIComponent(slug)}`, {
       cache: 'no-store',

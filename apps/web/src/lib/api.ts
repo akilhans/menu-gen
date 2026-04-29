@@ -10,7 +10,7 @@ import type {
   User,
 } from '@menu-gen/shared';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://test.opketme.uz';
 
 const TOKEN_KEY = 'menu-gen:token';
 

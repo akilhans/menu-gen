@@ -65,7 +65,6 @@ const menuItemSchema = new Schema<IMenuItem>(
       type: Schema.Types.ObjectId,
       ref: 'Restaurant',
       required: true,
-      index: true,
     },
     category: {
       type: Schema.Types.ObjectId,
@@ -86,7 +85,21 @@ const menuItemSchema = new Schema<IMenuItem>(
   { timestamps: true }
 );
 
+/*
+ * Index strategy
+ * --------------
+ * (1) { restaurant: 1, category: 1, sortOrder: 1 }
+ *     dashboard menu editor (group-by-category render). Covers prefix
+ *     { restaurant: 1 } so a standalone one is redundant.
+ *
+ * (2) { restaurant: 1, available: 1, sortOrder: 1 }
+ *     /api/public/menu/:slug — returns only `available: true` items, sorted
+ *     by sortOrder. Without this, the planner does an IXSCAN on (1) plus a
+ *     filter on `available`, which works but reads inactive items off-disk.
+ *     The dedicated index keeps the public read path tight.
+ */
 menuItemSchema.index({ restaurant: 1, category: 1, sortOrder: 1 });
+menuItemSchema.index({ restaurant: 1, available: 1, sortOrder: 1 });
 menuItemSchema.plugin(idTransformPlugin);
 
 export const MenuItem = mongoose.model<IMenuItem>('MenuItem', menuItemSchema);

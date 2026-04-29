@@ -3,22 +3,54 @@
 @tailwind utilities;
 
 :root {
-  --font-sans: 'Inter', system-ui, sans-serif;
-  --font-display: 'Fraunces', 'Playfair Display', serif;
-  --brand: #ff5a1f;
+  --font-sans: 'Bricolage Grotesque', ui-sans-serif, sans-serif;
+  --font-display: 'Fraunces', ui-serif, serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --paper: #f6f2ea;
+  --paper-warm: #efe8da;
+  --ink: #15131a;
+  --ink-soft: #221f2a;
+  --brand: #e2461c;
+
+  --chart-1: #e2461c;
+  --chart-2: #2c5f7c;
+  --chart-3: #6b7f62;
+  --chart-4: #d9a441;
+  --chart-5: #5b3a5c;
+
+  /* subtle paper grain for non-generic background */
+  --grain:
+    radial-gradient(circle at 20% 0%, rgba(226, 70, 28, 0.04), transparent 40%),
+    radial-gradient(circle at 80% 100%, rgba(44, 95, 124, 0.04), transparent 40%);
 }
 
 html,
 body {
   height: 100%;
-  background: #f7f5f0;
-  color: #0e0e10;
+  background: var(--paper);
+  color: var(--ink);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 body {
   font-family: var(--font-sans);
+  font-feature-settings: 'ss01', 'cv11';
+  background-image: var(--grain);
+  background-attachment: fixed;
+}
+
+::selection {
+  background: rgba(226, 70, 28, 0.18);
+  color: var(--ink);
+}
+
+/* Native focus ring tuning */
+:focus-visible {
+  outline: 2px solid rgba(226, 70, 28, 0.45);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 /* Mobile-first utilities */
@@ -36,4 +68,27 @@ body {
 
 .gradient-mask-bottom {
   mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+}
+
+/* Numeric tabular figures for analytics / pricing */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Subtle hatch pattern for empty/skeleton states (not a purple gradient) */
+.hatch {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(21, 19, 26, 0.04) 0,
+    rgba(21, 19, 26, 0.04) 1px,
+    transparent 1px,
+    transparent 8px
+  );
+}
+
+/* Subtle ink-on-paper noise glow used by hero / dashboard headers */
+.spot {
+  background:
+    radial-gradient(60% 60% at 30% 0%, rgba(226, 70, 28, 0.10), transparent 60%),
+    radial-gradient(40% 60% at 100% 100%, rgba(44, 95, 124, 0.08), transparent 60%);
 }

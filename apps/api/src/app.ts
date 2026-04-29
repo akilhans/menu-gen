@@ -6,6 +6,7 @@ import rateLimit from 'express-rate-limit';
 
 import { env, isProd } from './config/env';
 import { errorHandler } from './middleware/errorHandler';
+import { mongoSanitize } from './middleware/sanitize';
 
 import authRoutes from './routes/auth';
 import restaurantRoutes from './routes/restaurant';
@@ -22,18 +23,25 @@ export function createApp() {
   app.disable('x-powered-by');
   app.set('trust proxy', 1);
 
-  app.use(
-    helmet({
-      crossOriginResourcePolicy: { policy: 'cross-origin' },
-    })
-  );
+  // Helmet defaults are tight (`X-Content-Type-Options: nosniff`,
+  // `Referrer-Policy: no-referrer`, frame-deny). We DO NOT loosen CORP
+  // globally; it stays at its default `same-origin`. The /uploads route
+  // overrides it per-response (see below) so other origins can render
+  // images uploaded by users.
+  app.use(helmet());
+
   app.use(
     cors({
       origin: env.corsOrigin.split(',').map((s) => s.trim()),
-      credentials: true,
+      // Bearer-token API — no cookies. credentials:true is unnecessary and
+      // forces strict origin matching with no upside.
+      credentials: false,
     })
   );
   app.use(express.json({ limit: '1mb' }));
+  // Strip $-prefixed/dotted keys from body/query/params before any controller
+  // sees the input. Defense-in-depth for NoSQL operator injection.
+  app.use(mongoSanitize);
   if (!isProd) app.use(morgan('dev'));
 
   const globalLimiter = rateLimit({
@@ -44,9 +52,19 @@ export function createApp() {
   });
   app.use(globalLimiter);
 
-  // Static uploads (served with cross-origin CORP thanks to helmet above)
+  // Static uploads. Browsers cross-origin-fetch images, so CORP must be
+  // `cross-origin` *for this path only*. nosniff (from helmet defaults)
+  // ensures a `.png` containing HTML cannot be parsed as a document, and
+  // Content-Disposition: inline forces the browser to render rather than
+  // navigate.
   app.use(
     '/uploads',
+    (_req, res, next) => {
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('Content-Disposition', 'inline');
+      next();
+    },
     express.static(uploadDir, {
       maxAge: '7d',
       etag: true,

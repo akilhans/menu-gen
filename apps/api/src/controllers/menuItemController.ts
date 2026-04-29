@@ -4,6 +4,7 @@ import { MenuItem } from '../models/MenuItem';
 import { Category } from '../models/Category';
 import { Restaurant } from '../models/Restaurant';
 import { HttpError } from '../utils/httpError';
+import { safeUrl } from '../utils/zod';
 
 const modifierOptionSchema = z.object({
   id: z.string().min(1).max(40),
@@ -42,7 +43,7 @@ export const createItemSchema = z.object({
   name: z.string().min(1).max(120),
   description: z.string().max(500).optional(),
   price: z.number().min(0),
-  imageUrl: z.string().url().optional().or(z.literal('')),
+  imageUrl: safeUrl().optional().or(z.literal('')),
   available: z.boolean().optional(),
   tags: z.array(z.string().max(30)).max(10).optional(),
   allergens: z.array(z.string().max(30)).max(20).optional(),

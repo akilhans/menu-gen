@@ -3,12 +3,13 @@ import { z } from 'zod';
 import { Restaurant } from '../models/Restaurant';
 import { HttpError } from '../utils/httpError';
 import { uniqueSlug } from '../utils/slug';
+import { safeUrl } from '../utils/zod';
 
 export const updateRestaurantSchema = z.object({
   name: z.string().min(2).max(120).optional(),
   description: z.string().max(500).optional(),
-  logoUrl: z.string().url().optional().or(z.literal('')),
-  coverUrl: z.string().url().optional().or(z.literal('')),
+  logoUrl: safeUrl().optional().or(z.literal('')),
+  coverUrl: safeUrl().optional().or(z.literal('')),
   currency: z.string().length(3).optional(),
   themeColor: z
     .string()

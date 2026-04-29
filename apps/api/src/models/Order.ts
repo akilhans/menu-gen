@@ -68,7 +68,6 @@ const orderSchema = new Schema<IOrder>(
       type: Schema.Types.ObjectId,
       ref: 'Restaurant',
       required: true,
-      index: true,
     },
     table: { type: String, required: true, trim: true, maxlength: 20 },
     items: {
@@ -80,14 +79,37 @@ const orderSchema = new Schema<IOrder>(
       type: String,
       enum: ORDER_STATUSES,
       default: 'pending',
-      index: true,
     },
     customerNote: { type: String, maxlength: 500 },
   },
   { timestamps: true }
 );
 
+/*
+ * Index strategy
+ * --------------
+ * (1) { restaurant: 1, createdAt: -1 }
+ *     listOrders without a status filter; daily/weekly/monthly stats facet.
+ *     IXSCAN supplies sorted output → sort stage drops out of the plan.
+ *
+ * (2) { restaurant: 1, status: 1, createdAt: -1 }
+ *     listOrders with status filter, statusCounts aggregation, prep-time agg
+ *     (status ∈ [ready, completed]). Covers prefix { restaurant: 1 } too,
+ *     so the standalone single-field index on `restaurant` is redundant and
+ *     was removed from the field definition above.
+ *
+ * (3) Partial index for hot pending count
+ *     Tiny, fits in RAM; query planner uses it for `pending` chip badge load.
+ */
 orderSchema.index({ restaurant: 1, createdAt: -1 });
+orderSchema.index({ restaurant: 1, status: 1, createdAt: -1 });
+orderSchema.index(
+  { restaurant: 1, createdAt: -1 },
+  {
+    name: 'restaurant_pending_partial',
+    partialFilterExpression: { status: 'pending' },
+  }
+);
 orderSchema.plugin(idTransformPlugin);
 
 export const Order = mongoose.model<IOrder>('Order', orderSchema);

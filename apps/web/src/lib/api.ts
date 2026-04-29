@@ -14,6 +14,11 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://test.opketme.uz';
 
 const TOKEN_KEY = 'menu-gen:token';
 
+/**
+ * Tiny localStorage-backed token cache used by the API client. Server-side
+ * (SSR) it returns `null` and silently no-ops on writes, so it's safe to
+ * import from server components.
+ */
 export const tokenStore = {
   get(): string | null {
     if (typeof window === 'undefined') return null;
@@ -27,6 +32,11 @@ export const tokenStore = {
   },
 };
 
+/**
+ * Thrown by every `api.*` method when the server returns a non-2xx response.
+ * Catch it explicitly to read `status` (HTTP code) and `details` (server-sent
+ * field-level errors, typically the Zod `.flatten()` shape).
+ */
 export class ApiError extends Error {
   status: number;
   details?: unknown;
@@ -69,6 +79,16 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   return data as T;
 }
 
+/**
+ * Typed API client. Every method:
+ *   - JSON-encodes the body (when present)
+ *   - sends `Authorization: Bearer <token>` from `tokenStore` unless
+ *     `auth: false` is passed (used by /register, /login, /menu/:slug)
+ *   - throws `ApiError` on non-2xx, with the server's `message` and `details`
+ *
+ * Method shapes follow the REST endpoints documented in
+ * `apps/api/docs/API.md`.
+ */
 export const api = {
   // auth
   register: (body: { name: string; email: string; password: string; restaurantName: string }) =>

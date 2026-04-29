@@ -1,11 +1,25 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, Fraunces } from 'next/font/google';
+import { Bricolage_Grotesque, Fraunces, JetBrains_Mono } from 'next/font/google';
 import { Toaster } from 'react-hot-toast';
 import { I18nProvider } from '@/i18n/I18nProvider';
 import './globals.css';
 
-const inter = Inter({ subsets: ['latin', 'cyrillic'], variable: '--font-sans' });
-const fraunces = Fraunces({ subsets: ['latin'], variable: '--font-display' });
+const bricolage = Bricolage_Grotesque({
+  subsets: ['latin'],
+  variable: '--font-sans',
+  display: 'swap',
+});
+const fraunces = Fraunces({
+  subsets: ['latin'],
+  variable: '--font-display',
+  display: 'swap',
+  axes: ['SOFT', 'opsz'],
+});
+const mono = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-mono',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: { default: 'menu-gen — QR menus for restaurants', template: '%s · menu-gen' },
@@ -28,7 +42,10 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${fraunces.variable}`}>
+    <html
+      lang="en"
+      className={`${bricolage.variable} ${fraunces.variable} ${mono.variable}`}
+    >
       <body className="min-h-dvh bg-paper text-ink antialiased">
         <I18nProvider>{children}</I18nProvider>
         <Toaster

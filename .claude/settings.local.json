@@ -10,7 +10,12 @@
       "Bash(npx next *)",
       "Bash(curl -s -i \"http://localhost:3030/menu/nur-burger\")",
       "Bash(xargs grep *)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(git *)",
+      "Bash(NEXT_PUBLIC_API_URL=https://test.opketme.uz NEXT_PUBLIC_SITE_URL=https://menu-gen-web.vercel.app npx next build)",
+      "Bash(awk '/^}/&&!done{print NR\": \"$0; if\\(prev==\"</motion.article>\"\\){done=1}} {prev=$0}' C:/Users/akilhan/Desktop/menu-gen/apps/web/src/app/dashboard/orders/page.tsx)",
+      "Bash(npm install *)",
+      "Bash(npx vitest *)"
     ]
   }
 }

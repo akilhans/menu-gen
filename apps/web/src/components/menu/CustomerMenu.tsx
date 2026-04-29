@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import { buildSearchIndex, sumBy } from '@/lib/search';
 import {
   Instagram,
   MapPin,
@@ -66,24 +67,53 @@ export function CustomerMenu({ data }: { data: PublicMenuResponse }) {
     [categories]
   );
   const cartLines = useMemo(() => Object.values(cart), [cart]);
-  const cartCount = cartLines.reduce((s, l) => s + l.quantity, 0);
-  const cartSubtotal = cartLines.reduce((s, l) => s + l.price * l.quantity, 0);
+  const { cartCount, cartSubtotal, cartTotalsByItem } = useMemo(() => {
+    let count = 0;
+    let subtotal = 0;
+    for (const l of cartLines) {
+      count += l.quantity;
+      subtotal += l.price * l.quantity;
+    }
+    return {
+      cartCount: count,
+      cartSubtotal: subtotal,
+      cartTotalsByItem: sumBy(cartLines, (l) => l.menuItemId, (l) => l.quantity),
+    };
+  }, [cartLines]);
+
+  // Precomputed search indexes keyed by category id. Built once per `categories`
+  // change. Before: O(N · L) lowercasing per keystroke. After: O(N) substring
+  // checks against pre-lowercased haystacks (build cost is paid once on mount).
+  const indexesByCategory = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof buildSearchIndex<MenuItem>>>();
+    for (const c of categories) {
+      map.set(
+        c.id,
+        buildSearchIndex(c.items, [
+          (i) => i.name,
+          (i) => i.description ?? '',
+          (i) => i.tags,
+        ])
+      );
+    }
+    return map;
+  }, [categories]);
+
+  // Defer the query: typing stays responsive even when the menu is large because
+  // React scheduling lets the input update at high priority and the filter at low.
+  const deferredQuery = useDeferredValue(query);
 
   const filteredCategories = useMemo(() => {
-    if (!query.trim()) return categories;
-    const q = query.toLowerCase();
-    return categories
-      .map((c) => ({
-        ...c,
-        items: c.items.filter(
-          (i) =>
-            i.name.toLowerCase().includes(q) ||
-            (i.description ?? '').toLowerCase().includes(q) ||
-            i.tags.some((tag) => tag.toLowerCase().includes(q))
-        ),
-      }))
-      .filter((c) => c.items.length > 0);
-  }, [categories, query]);
+    if (!deferredQuery.trim()) return categories;
+    const out = [];
+    for (const c of categories) {
+      const idx = indexesByCategory.get(c.id);
+      if (!idx) continue;
+      const items = idx.search(deferredQuery);
+      if (items.length > 0) out.push({ ...c, items });
+    }
+    return out;
+  }, [categories, deferredQuery, indexesByCategory]);
 
   useEffect(() => {
     if (query.trim()) return;
@@ -178,9 +208,7 @@ export function CustomerMenu({ data }: { data: PublicMenuResponse }) {
   }
 
   function lineCountForItem(itemId: string) {
-    return cartLines
-      .filter((l) => l.menuItemId === itemId)
-      .reduce((s, l) => s + l.quantity, 0);
+    return cartTotalsByItem.get(itemId) ?? 0;
   }
 
   function onPlaced() {
@@ -196,8 +224,11 @@ export function CustomerMenu({ data }: { data: PublicMenuResponse }) {
         <div
           className="absolute inset-0"
           style={{
+            // JSON.stringify quotes + escapes the URL so it can't break out of
+            // url(...) into adjacent CSS. The server also validates the URL
+            // protocol, but this is defense-in-depth for legacy DB rows.
             background: restaurant.coverUrl
-              ? `url(${restaurant.coverUrl}) center/cover`
+              ? `url(${JSON.stringify(restaurant.coverUrl)}) center/cover`
               : `linear-gradient(135deg, ${theme} 0%, #1a1a1f 100%)`,
           }}
         />

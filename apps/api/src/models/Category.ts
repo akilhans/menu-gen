@@ -15,7 +15,6 @@ const categorySchema = new Schema<ICategory>(
       type: Schema.Types.ObjectId,
       ref: 'Restaurant',
       required: true,
-      index: true,
     },
     name: { type: String, required: true, trim: true, maxlength: 80 },
     sortOrder: { type: Number, default: 0 },

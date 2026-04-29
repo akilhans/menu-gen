@@ -185,81 +185,197 @@ export async function updateOrderStatus(req: Request, res: Response) {
 }
 
 // ---------- Private: stats ----------
+
+type SumDoc = { _id: null | number | string; count: number; revenue: number };
+type StatusDoc = { _id: string; count: number };
+type TopItemDoc = { name: string; quantity: number; revenue: number };
+type PrepTimeDoc = { _id: null; avgMs: number };
+
+function bucketSum(docs: SumDoc[]): { orders: number; revenue: number; averageOrderValue: number } {
+  const orders = docs.reduce((s, d) => s + d.count, 0);
+  const revenue = docs.reduce((s, d) => s + d.revenue, 0);
+  return {
+    orders,
+    revenue,
+    averageOrderValue: orders > 0 ? revenue / orders : 0,
+  };
+}
+
+/**
+ * Aggregate dashboard stats in a single roundtrip via `$facet`.
+ *
+ * Indexes used:
+ *   - { restaurant: 1, createdAt: -1 } (existing) — outer $match
+ *   - { restaurant: 1, status: 1, createdAt: -1 } (added) — status sub-pipes
+ */
 export async function getOrderStats(req: Request, res: Response) {
   const restaurant = await requireOwnedRestaurant(req.userId);
 
-  const startOfToday = new Date();
+  const now = new Date();
+  const startOfToday = new Date(now);
   startOfToday.setHours(0, 0, 0, 0);
-  const startOfWeek = new Date();
+  const startOfWeek = new Date(now);
   startOfWeek.setDate(startOfWeek.getDate() - 7);
   startOfWeek.setHours(0, 0, 0, 0);
+  const startOfMonth = new Date(now);
+  startOfMonth.setDate(startOfMonth.getDate() - 30);
+  startOfMonth.setHours(0, 0, 0, 0);
+  const startOfDailySeries = new Date(now);
+  startOfDailySeries.setDate(startOfDailySeries.getDate() - 13);
+  startOfDailySeries.setHours(0, 0, 0, 0);
 
-  type Agg = { count: number; revenue: number };
-  const groupByNone = {
-    _id: null,
-    count: { $sum: 1 },
-    revenue: { $sum: '$subtotal' },
-  };
+  const restaurantId = restaurant._id;
 
-  const [todayAgg, weekAgg, pendingCount, topItems] = await Promise.all([
-    Order.aggregate<Agg>([
+  // One $facet does the time-bound work. A separate small all-time aggregation
+  // handles topItems + statusCounts + pending so the facet input stays small
+  // (last 30 days) and the index plan stays fast.
+  const [timeBound, [statusAgg, topItems, prepTimeAgg]] = await Promise.all([
+    Order.aggregate<{
+      today: SumDoc[];
+      week: SumDoc[];
+      month: SumDoc[];
+      hourly: { _id: number; count: number; revenue: number }[];
+      daily: { _id: string; count: number; revenue: number }[];
+    }>([
       {
         $match: {
-          restaurant: restaurant._id,
-          createdAt: { $gte: startOfToday },
+          restaurant: restaurantId,
+          createdAt: { $gte: startOfDailySeries },
           status: { $ne: 'cancelled' },
         },
       },
-      { $group: groupByNone },
+      {
+        $facet: {
+          today: [
+            { $match: { createdAt: { $gte: startOfToday } } },
+            { $group: { _id: null, count: { $sum: 1 }, revenue: { $sum: '$subtotal' } } },
+          ],
+          week: [
+            { $match: { createdAt: { $gte: startOfWeek } } },
+            { $group: { _id: null, count: { $sum: 1 }, revenue: { $sum: '$subtotal' } } },
+          ],
+          month: [
+            { $match: { createdAt: { $gte: startOfMonth } } },
+            { $group: { _id: null, count: { $sum: 1 }, revenue: { $sum: '$subtotal' } } },
+          ],
+          hourly: [
+            { $match: { createdAt: { $gte: startOfToday } } },
+            {
+              $group: {
+                _id: { $hour: '$createdAt' },
+                count: { $sum: 1 },
+                revenue: { $sum: '$subtotal' },
+              },
+            },
+          ],
+          daily: [
+            {
+              $group: {
+                _id: { $dateToString: { date: '$createdAt', format: '%Y-%m-%d' } },
+                count: { $sum: 1 },
+                revenue: { $sum: '$subtotal' },
+              },
+            },
+          ],
+        },
+      },
     ]),
-    Order.aggregate<Agg>([
-      {
-        $match: {
-          restaurant: restaurant._id,
-          createdAt: { $gte: startOfWeek },
-          status: { $ne: 'cancelled' },
+    Promise.all([
+      Order.aggregate<StatusDoc>([
+        { $match: { restaurant: restaurantId } },
+        { $group: { _id: '$status', count: { $sum: 1 } } },
+      ]),
+      Order.aggregate<TopItemDoc>([
+        { $match: { restaurant: restaurantId, status: { $ne: 'cancelled' } } },
+        { $unwind: '$items' },
+        {
+          $group: {
+            _id: '$items.name',
+            quantity: { $sum: '$items.quantity' },
+            revenue: { $sum: { $multiply: ['$items.price', '$items.quantity'] } },
+          },
         },
-      },
-      { $group: groupByNone },
-    ]),
-    Order.countDocuments({ restaurant: restaurant._id, status: 'pending' }),
-    Order.aggregate<{ name: string; quantity: number; revenue: number }>([
-      {
-        $match: {
-          restaurant: restaurant._id,
-          status: { $ne: 'cancelled' },
+        { $sort: { quantity: -1 } },
+        { $limit: 5 },
+        { $project: { _id: 0, name: '$_id', quantity: 1, revenue: 1 } },
+      ]),
+      Order.aggregate<PrepTimeDoc>([
+        {
+          $match: {
+            restaurant: restaurantId,
+            status: { $in: ['ready', 'completed'] },
+            createdAt: { $gte: startOfMonth },
+          },
         },
-      },
-      { $unwind: '$items' },
-      {
-        $group: {
-          _id: '$items.name',
-          quantity: { $sum: '$items.quantity' },
-          revenue: { $sum: { $multiply: ['$items.price', '$items.quantity'] } },
+        {
+          $group: {
+            _id: null,
+            avgMs: { $avg: { $subtract: ['$updatedAt', '$createdAt'] } },
+          },
         },
-      },
-      { $sort: { quantity: -1 } },
-      { $limit: 5 },
-      { $project: { _id: 0, name: '$_id', quantity: 1, revenue: 1 } },
+      ]),
     ]),
   ]);
 
-  const today = todayAgg[0] ?? { count: 0, revenue: 0 };
-  const week = weekAgg[0] ?? { count: 0, revenue: 0 };
+  const facet = timeBound[0] ?? { today: [], week: [], month: [], hourly: [], daily: [] };
+
+  const today = bucketSum(facet.today);
+  const week = bucketSum(facet.week);
+  const month = bucketSum(facet.month);
+
+  // Build dense 24-bucket array (00..23) — fill zeros so the chart renders cleanly.
+  const hourlyMap = new Map(facet.hourly.map((h) => [h._id, h]));
+  const hourlyToday = Array.from({ length: 24 }, (_, hour) => {
+    const base = new Date(startOfToday);
+    base.setHours(hour, 0, 0, 0);
+    const h = hourlyMap.get(hour);
+    return {
+      at: base.toISOString(),
+      orders: h?.count ?? 0,
+      revenue: h?.revenue ?? 0,
+    };
+  });
+
+  // Build dense 14-day series.
+  const dailyMap = new Map(facet.daily.map((d) => [d._id, d]));
+  const daily = Array.from({ length: 14 }, (_, i) => {
+    const d = new Date(startOfDailySeries);
+    d.setDate(d.getDate() + i);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const row = dailyMap.get(key);
+    return {
+      at: d.toISOString(),
+      orders: row?.count ?? 0,
+      revenue: row?.revenue ?? 0,
+    };
+  });
+
+  const statusCounts = {
+    pending: 0,
+    preparing: 0,
+    ready: 0,
+    completed: 0,
+    cancelled: 0,
+  };
+  for (const row of statusAgg) {
+    if (row._id in statusCounts) {
+      (statusCounts as Record<string, number>)[row._id] = row.count;
+    }
+  }
+
+  const avgPrepTimeMinutes = prepTimeAgg[0]?.avgMs ? prepTimeAgg[0].avgMs / 60000 : null;
 
   res.json({
     stats: {
-      today: {
-        orders: today.count,
-        revenue: today.revenue,
-        averageOrderValue: today.count > 0 ? today.revenue / today.count : 0,
-      },
-      pending: pendingCount,
-      thisWeek: {
-        orders: week.count,
-        revenue: week.revenue,
-      },
+      today,
+      thisWeek: { ...week },
+      thisMonth: { ...month },
+      pending: statusCounts.pending,
+      statusCounts,
+      hourlyToday,
+      daily,
       topItems,
+      avgPrepTimeMinutes,
     },
   });
 }

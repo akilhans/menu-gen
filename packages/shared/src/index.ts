@@ -117,16 +117,38 @@ export interface Order {
   updatedAt: string;
 }
 
-export interface OrderStats {
-  today: {
-    orders: number;
-    revenue: number;
-    averageOrderValue: number;
-  };
+export interface OrderStatsBucket {
+  orders: number;
+  revenue: number;
+  averageOrderValue: number;
+}
+
+export interface OrderStatusBreakdown {
   pending: number;
-  thisWeek: {
-    orders: number;
-    revenue: number;
-  };
+  preparing: number;
+  ready: number;
+  completed: number;
+  cancelled: number;
+}
+
+export interface OrderTimePoint {
+  /** Bucket start, ISO string. */
+  at: string;
+  orders: number;
+  revenue: number;
+}
+
+export interface OrderStats {
+  today: OrderStatsBucket;
+  thisWeek: OrderStatsBucket;
+  thisMonth: OrderStatsBucket;
+  pending: number;
+  statusCounts: OrderStatusBreakdown;
+  /** 24 buckets, one per hour of "today" in server time. */
+  hourlyToday: OrderTimePoint[];
+  /** Last 14 days inclusive of today. */
+  daily: OrderTimePoint[];
   topItems: Array<{ name: string; quantity: number; revenue: number }>;
+  /** Average minutes between createdAt and the moment status reached `ready`/`completed`. Null if no completed orders yet. */
+  avgPrepTimeMinutes: number | null;
 }

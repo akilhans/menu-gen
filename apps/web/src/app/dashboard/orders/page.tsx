@@ -174,16 +174,21 @@ export default function OrdersPage() {
   }
 
   // Active range bucket — memoized so the StatGrid doesn't recompute on unrelated state.
+  // Defensive defaults: an older API build may not return `thisMonth`.
   const activeBucket: OrderStatsBucket | null = useMemo(() => {
     if (!stats) return null;
-    return range === 'today' ? stats.today : range === 'week' ? stats.thisWeek : stats.thisMonth;
+    if (range === 'today') return stats.today ?? null;
+    if (range === 'week') return stats.thisWeek ?? null;
+    return stats.thisMonth ?? null;
   }, [stats, range]);
 
   // Daily series for sparkline (revenue) — slice to 7 or 14 based on range, memoized.
+  // `stats.daily` may be missing when the API hasn't been redeployed yet.
   const sparklineData = useMemo(() => {
-    if (!stats) return [];
+    const daily = stats?.daily ?? [];
+    if (!daily.length) return [];
     const slice =
-      range === 'today' ? stats.daily.slice(-1) : range === 'week' ? stats.daily.slice(-7) : stats.daily;
+      range === 'today' ? daily.slice(-1) : range === 'week' ? daily.slice(-7) : daily;
     return slice.map((d) => ({ at: d.at, value: d.revenue }));
   }, [stats, range]);
 
@@ -312,7 +317,7 @@ export default function OrdersPage() {
               Revenue · last 14 days
             </p>
             <p className="font-mono tabular text-xs text-ink/40">
-              {stats?.daily.reduce((s, d) => s + d.revenue, 0) === 0
+              {(stats?.daily ?? []).reduce((s, d) => s + d.revenue, 0) === 0
                 ? 'No data yet'
                 : null}
             </p>
@@ -413,7 +418,7 @@ export default function OrdersPage() {
 }
 
 function countFor(s: OrderStatus | 'all', stats: OrderStats | null): number | null {
-  if (!stats) return null;
+  if (!stats || !stats.statusCounts) return null;
   if (s === 'all') {
     return Object.values(stats.statusCounts).reduce((a, b) => a + b, 0);
   }
